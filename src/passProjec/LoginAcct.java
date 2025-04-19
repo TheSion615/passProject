@@ -1,6 +1,10 @@
 package passProjec;
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableCellRenderer;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -15,6 +19,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.logging.Logger;
 
 class LoginAcct extends JFrame {
 
@@ -180,51 +185,84 @@ class LoginAcct extends JFrame {
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout(new FlowLayout());
+        
+        String username = textFieldUserName.getText().toLowerCase();
+        
+        final File passwordFile = new File("src/passwords_for_" + username + ".txt");
+        
+        Logger logger = Logger.getLogger(getClass().getName());
 
         JButton displayAllButton = new JButton("Display All");
         displayAllButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                try {
-                    BufferedReader reader = new BufferedReader(new FileReader("src/passwords.txt"));
-                    String line;
-                    String[][] data = new String[1000][3]; // Initialize an array to hold the data
-                    int rowIndex = 0;
-                    while ((line = reader.readLine()) != null) {
-                        String[] parts = line.split("\\|");
-                        if (parts.length == 3) {
-                            data[rowIndex][0] = parts[0]; // Business
-                            data[rowIndex][1] = parts[1]; // User Name
-                            data[rowIndex][2] = parts[2]; // Password
-                            rowIndex++;
-                        }
-                    }
-
-                    // Sort the data alphabetically by company
-                    String[][] sortedData = new String[rowIndex][3];
-                    System.arraycopy(data, 0, sortedData, 0, rowIndex);
-                    for (int i = 0; i < rowIndex; i++) {
-                        for (int j = i + 1; j < rowIndex; j++) {
-                            if (sortedData[i][0].compareTo(sortedData[j][0]) > 0) {
-                                String[] temp = sortedData[i];
-                                sortedData[i] = sortedData[j];
-                                sortedData[j] = temp;
+                if (passwordFile.exists() && passwordFile.length() > 0) {
+                    try {
+                        BufferedReader reader = new BufferedReader(new FileReader(passwordFile));
+                        String line;
+                        String[][] data = new String[1000][3]; // Initialize an array to hold the data
+                        int rowIndex = 0;
+                        while ((line = reader.readLine()) != null) {
+                            String[] parts = line.split("\\|");
+                            if (parts.length == 3) {
+                                data[rowIndex][0] = parts[0]; // Business
+                                data[rowIndex][1] = parts[1]; // User Name
+                                data[rowIndex][2] = parts[2]; // Password
+                                rowIndex++;
                             }
                         }
-                    }
 
-                    String[] columnNames = {"Business", "User Name", "Password"};
-                    JTable table = new JTable(sortedData, columnNames);
-                    JScrollPane scrollPane = new JScrollPane(table);
-                    JFrame frame = new JFrame("Account Information");
-                    frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-                    frame.add(scrollPane);
-                    frame.setSize(800, 600);
-                    frame.setVisible(true);
-                } catch (IOException ex) {
+                        // Sort the data alphabetically by company
+                        String[][] sortedData = new String[rowIndex][3];
+                        System.arraycopy(data, 0, sortedData, 0, rowIndex);
+                        for (int i = 0; i < rowIndex; i++) {
+                            for (int j = i + 1; j < rowIndex; j++) {
+                                if (sortedData[i][0].compareTo(sortedData[j][0]) > 0) {
+                                    String[] temp = sortedData[i];
+                                    sortedData[i] = sortedData[j];
+                                    sortedData[j] = temp;
+                                }
+                            }
+                        }
+
+                        String[] columnNames = {"Business", "User Name", "Password"};
+                        DefaultTableModel tableModel = new DefaultTableModel(sortedData, columnNames);
+                        JTable table = new JTable(tableModel) {
+                            @Override
+                            public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+                                Component component = super.prepareRenderer(renderer, row, column);
+                                if (component instanceof JComponent) {
+                                    ((JComponent) component).setBackground(Color.YELLOW);
+                                }
+                                return component;
+                            }
+                        };
+
+                        // Make the header bold black
+                        JTableHeader header = table.getTableHeader();
+                        header.setFont(new Font("Arial", Font.BOLD, 14));
+                        header.setForeground(Color.BLACK);
+                        header.setBackground(Color.YELLOW);
+
+                        // Implement scrolling capability
+                        JScrollPane scrollPane = new JScrollPane(table);
+                        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+                        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+
+                        JFrame frame = new JFrame("Account Information");
+                        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                        frame.add(scrollPane);
+                        frame.setSize(800, 600);
+                        frame.setVisible(true);
+                    } catch (IOException ex) {
+                        logger.severe("An error occurred: " + ex.getMessage());
+                        logger.severe(ex.toString());
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(null, "No data to display");
                 }
             }
         });
-        bottomPanel.add(displayAllButton);
+	        bottomPanel.add(displayAllButton);
 
         JButton searchButton = new JButton("Search");
         searchButton.addActionListener(new ActionListener() {
@@ -248,6 +286,7 @@ class LoginAcct extends JFrame {
                     }
                     JOptionPane.showMessageDialog(null, "Account not found");
                 } catch (IOException ex) {
+                	System.out.println("Event: " + e.toString());
                 }
             }
         });
@@ -266,11 +305,12 @@ class LoginAcct extends JFrame {
                 }
 
                 try {
-                    BufferedWriter writer = new BufferedWriter(new FileWriter("src/passwords.txt", true));
+                    BufferedWriter writer = new BufferedWriter(new FileWriter(passwordFile, true));
                     writer.write(company + "|" + username + "|" + password + "\n");
                     writer.close();
                     JOptionPane.showMessageDialog(null, "The data for \"" + company + "\" has been added sucessfully!");
                 } catch (IOException ex) {
+                	System.out.println("Event: " + e.toString());
                 }
             }
         });
@@ -308,6 +348,7 @@ class LoginAcct extends JFrame {
                         JOptionPane.showMessageDialog(null, "Account not found");
                     }
                 } catch (IOException ex) {
+                	System.out.println("Event: " + e.toString());
                 }
             }
         });
